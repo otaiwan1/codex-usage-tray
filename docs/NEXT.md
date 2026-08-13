@@ -4,6 +4,7 @@
 
 - The tray application and per-user lifecycle installer are implemented for `win-x64`.
 - The application reads the latest seven-day event, renders the percentage icon, and updates from filesystem events.
+- Public source and the checksummed `v1.0.0` release are published at `otaiwan1/codex-usage-tray`.
 
 ## Verification target
 
