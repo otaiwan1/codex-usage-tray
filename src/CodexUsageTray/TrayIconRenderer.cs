@@ -56,9 +56,10 @@ public static class TrayIconRenderer
         path.AddString(text, fontFamily, (int)FontStyle.Bold, initialEmSize, PointF.Empty, format);
 
         var bounds = path.GetBounds();
-        var scale = Math.Min(availableSize / bounds.Width, availableSize / bounds.Height);
+        var horizontalScale = availableSize / bounds.Width;
+        var verticalScale = availableSize / bounds.Height;
         using var transform = new Matrix();
-        transform.Scale(scale, scale);
+        transform.Scale(horizontalScale, verticalScale);
         path.Transform(transform);
 
         bounds = path.GetBounds();

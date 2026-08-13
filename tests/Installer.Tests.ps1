@@ -36,6 +36,41 @@ try {
         -StartupDirectory $startupDirectory -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory | Out-String)
     Assert-True ($statusText -match 'Running\s+: False') 'status is scoped to the installed executable path'
 
+    $lockScript = Join-Path $root 'HoldLock.ps1'
+    $lockSignal = Join-Path $root 'lock-acquired'
+    @'
+param([string]$Target, [string]$Signal)
+$stream = [IO.File]::Open($Target, 'Open', 'Read', 'None')
+try {
+    Set-Content -LiteralPath $Signal -Value 'locked'
+    Start-Sleep -Seconds 2
+}
+finally {
+    $stream.Dispose()
+}
+'@ | Set-Content -LiteralPath $lockScript -Encoding UTF8
+    $lockProcess = Start-Process powershell.exe -ArgumentList @(
+        '-NoProfile', '-File', $lockScript, '-Target', (Join-Path $installDirectory 'CodexUsageTray.exe'), '-Signal', $lockSignal
+    ) -WindowStyle Hidden -PassThru
+    try {
+        $deadline = [DateTime]::UtcNow.AddSeconds(5)
+        while (-not (Test-Path -LiteralPath $lockSignal) -and [DateTime]::UtcNow -lt $deadline) {
+            Start-Sleep -Milliseconds 50
+        }
+        Assert-True (Test-Path -LiteralPath $lockSignal) 'lock helper acquired executable'
+
+        & $installer -Action Install -PackagePath $PackagePath -NoLaunch `
+            -InstallDirectory $installDirectory -StartupDirectory $startupDirectory `
+            -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory
+        Assert-True ($lockProcess.HasExited) 'installer waited for a transient executable lock'
+    }
+    finally {
+        if (-not $lockProcess.HasExited) {
+            Stop-Process -Id $lockProcess.Id -Force
+        }
+        $lockProcess.Dispose()
+    }
+
     & $installer -Action Configure -MonitorAutoStart Disable -ChatGptAutoStart Disable -StartMenuShortcut Disable `
         -InstallDirectory $installDirectory -StartupDirectory $startupDirectory `
         -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory

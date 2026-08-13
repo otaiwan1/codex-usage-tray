@@ -226,6 +226,28 @@ function Stop-InstalledMonitor {
     }
 }
 
+function Copy-PackageWithRetry {
+    param(
+        [Parameter(Mandatory)][string]$Source,
+        [Parameter(Mandatory)][string]$Destination
+    )
+
+    $maximumAttempts = 20
+    for ($attempt = 1; $attempt -le $maximumAttempts; $attempt++) {
+        try {
+            Copy-Item -LiteralPath $Source -Destination $Destination -Force
+            return
+        }
+        catch [IO.IOException] {
+            if ($attempt -eq $maximumAttempts) {
+                throw
+            }
+
+            Start-Sleep -Milliseconds 250
+        }
+    }
+}
+
 function Test-MonitorRunning {
     param([Parameter(Mandatory)][string]$ExecutablePath)
 
@@ -372,7 +394,7 @@ switch ($Action) {
             $sourceHash = (Get-FileHash -LiteralPath $sourcePackage -Algorithm SHA256).Hash
             New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
             Stop-InstalledMonitor $installedExecutable
-            Copy-Item -LiteralPath $sourcePackage -Destination $installedExecutable -Force
+            Copy-PackageWithRetry $sourcePackage $installedExecutable
 
             $resolvedChatGptAppId = Get-ChatGptAppId
             if ($chatGptSetting -eq 'Enable') {
