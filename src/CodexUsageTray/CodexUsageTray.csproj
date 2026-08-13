@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <OutputType>WinExe</OutputType>
+    <TargetFramework>net8.0-windows</TargetFramework>
+    <UseWindowsForms>true</UseWindowsForms>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <Nullable>enable</Nullable>
+    <ApplicationManifest>app.manifest</ApplicationManifest>
+    <ApplicationHighDpiMode>PerMonitorV2</ApplicationHighDpiMode>
+    <AssemblyName>CodexUsageTray</AssemblyName>
+    <RootNamespace>CodexUsageTray</RootNamespace>
+    <Version>1.0.0</Version>
+    <Product>Codex Usage Tray</Product>
+    <Description>Low-overhead Windows tray monitor for Codex seven-day usage.</Description>
+  </PropertyGroup>
+</Project>

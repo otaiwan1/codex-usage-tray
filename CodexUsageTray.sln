@@ -1,0 +1,24 @@
+Microsoft Visual Studio Solution File, Format Version 12.00
+# Visual Studio Version 17
+VisualStudioVersion = 17.0.31903.59
+MinimumVisualStudioVersion = 10.0.40219.1
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexUsageTray", "src\CodexUsageTray\CodexUsageTray.csproj", "{66881E15-D413-4C03-95BE-D2518AB70071}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "CodexUsageTray.Tests", "tests\CodexUsageTray.Tests\CodexUsageTray.Tests.csproj", "{449A9E0D-9327-48D6-8B54-E89F2EE92429}"
+EndProject
+Global
+	GlobalSection(SolutionConfigurationPlatforms) = preSolution
+		Debug|Any CPU = Debug|Any CPU
+		Release|Any CPU = Release|Any CPU
+	EndGlobalSection
+	GlobalSection(ProjectConfigurationPlatforms) = postSolution
+		{66881E15-D413-4C03-95BE-D2518AB70071}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{66881E15-D413-4C03-95BE-D2518AB70071}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{66881E15-D413-4C03-95BE-D2518AB70071}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{66881E15-D413-4C03-95BE-D2518AB70071}.Release|Any CPU.Build.0 = Release|Any CPU
+		{449A9E0D-9327-48D6-8B54-E89F2EE92429}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{449A9E0D-9327-48D6-8B54-E89F2EE92429}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{449A9E0D-9327-48D6-8B54-E89F2EE92429}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{449A9E0D-9327-48D6-8B54-E89F2EE92429}.Release|Any CPU.Build.0 = Release|Any CPU
+	EndGlobalSection
+EndGlobal

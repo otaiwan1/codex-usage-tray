@@ -1,0 +1,38 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: write
+
+jobs:
+  build-and-release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
+      - name: Test
+        run: dotnet test CodexUsageTray.sln -c Release
+      - name: Publish
+        run: dotnet publish src/CodexUsageTray/CodexUsageTray.csproj -c Release -r win-x64 --self-contained true -p:PublishSingleFile=true -o artifacts/win-x64
+      - name: Create checksum
+        shell: pwsh
+        run: |
+          $hash = (Get-FileHash artifacts/win-x64/CodexUsageTray.exe -Algorithm SHA256).Hash.ToLowerInvariant()
+          "$hash  CodexUsageTray.exe" | Set-Content artifacts/win-x64/CodexUsageTray.exe.sha256 -Encoding ascii
+      - name: Create GitHub Release
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "${{ github.ref_name }}" `
+            artifacts/win-x64/CodexUsageTray.exe `
+            artifacts/win-x64/CodexUsageTray.exe.sha256 `
+            --repo "${{ github.repository }}" `
+            --generate-notes `
+            --verify-tag
