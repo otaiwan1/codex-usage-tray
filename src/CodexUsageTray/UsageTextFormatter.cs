@@ -6,10 +6,10 @@ public static class UsageTextFormatter
 {
     public static string FormatTooltip(UsageSnapshot snapshot, DateTimeOffset now)
     {
-        var reset = FormatRemaining(snapshot.ResetsAt - now);
-        var credits = snapshot.UnlimitedCredits ? "∞" : Shorten(snapshot.CreditBalance ?? "—", 10);
+        var reset = snapshot.ResetsAt is null ? "未知" : FormatRemaining(snapshot.ResetsAt.Value - now);
+        var resets = snapshot.AvailableResetCredits?.ToString(CultureInfo.InvariantCulture) ?? "—";
         var updated = snapshot.ReportedAt.ToLocalTime().ToString("MM/dd HH:mm", CultureInfo.InvariantCulture);
-        return Shorten($"7d 可用 {snapshot.RemainingPercent}% | 重置 {reset} | Credits {credits} | {updated}", 63);
+        return Shorten($"7d 可用 {snapshot.RemainingPercent}% | 重置 {reset} | 可用重置 {resets} | {updated}", 63);
     }
 
     public static string FormatRemaining(TimeSpan remaining)

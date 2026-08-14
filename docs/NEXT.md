@@ -3,12 +3,12 @@
 ## Current state
 
 - The tray application and per-user lifecycle installer are implemented for `win-x64`.
-- The application reads the latest seven-day event, renders the percentage icon, and updates from filesystem events.
-- Public source and the checksummed `v1.0.1` release are published at `otaiwan1/codex-usage-tray`.
+- The application reads the current account-level seven-day snapshot through Codex app-server, renders the percentage icon, and keeps filesystem events as a fast fallback.
+- Version `1.0.2` adds correct remote-SSH usage visibility and displays the authoritative available reset count.
 
 ## Verification target
 
-- Parser and reader tests cover seven-day window selection, clamping, credits, malformed input, partial writes, and newest-report selection.
+- Parser and reader tests cover app-server bucket selection, reset credits, nullable reset times, JSONL seven-day window selection, clamping, malformed input, partial writes, and newest-report selection.
 - Keep Release builds warning-free and preserve the self-contained single-file publish.
 - Repeat a launch/idle/exit smoke test after tray lifecycle changes.
 - Run the isolated installer lifecycle test after installer changes.
@@ -16,4 +16,4 @@
 ## Known follow-up
 
 - Confirm the larger transparent-background icon on the user's actual Windows scaling and taskbar theme.
-- If the Codex event schema changes, update the parser fixture and integration boundary documentation together.
+- If the Codex app-server or event schema changes, update the relevant parser fixtures and integration boundary documentation together.

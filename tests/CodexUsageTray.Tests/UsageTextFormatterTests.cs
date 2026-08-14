@@ -11,11 +11,11 @@ public sealed class UsageTextFormatterTests
         Assert.Equal("2時15分", UsageTextFormatter.FormatRemaining(TimeSpan.FromMinutes(135)));
         Assert.Equal("待更新", UsageTextFormatter.FormatRemaining(TimeSpan.Zero));
 
-        var snapshot = new UsageSnapshot(2, now.AddHours(51), now, "0", false, "plus");
+        var snapshot = new UsageSnapshot(2, now.AddHours(51), now, "0", false, "plus", 2);
         var tooltip = UsageTextFormatter.FormatTooltip(snapshot, now);
         Assert.Contains("7d 可用 98%", tooltip);
         Assert.Contains("重置 2天3時", tooltip);
-        Assert.Contains("Credits 0", tooltip);
+        Assert.Contains("可用重置 2", tooltip);
         Assert.True(tooltip.Length <= 63);
     }
 

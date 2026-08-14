@@ -4,7 +4,9 @@ public sealed class TrayApplicationContext : ApplicationContext
 {
     private readonly SynchronizationContext uiContext;
     private readonly CodexUsageLogReader reader;
+    private readonly CodexAccountRateLimitReader accountReader;
     private readonly UsageFileWatcher watcher;
+    private readonly System.Threading.Timer accountRefreshTimer;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem statusItem;
     private readonly ToolStripMenuItem refreshItem;
@@ -12,6 +14,10 @@ public sealed class TrayApplicationContext : ApplicationContext
     private UsageSnapshot? latest;
     private Icon? currentIcon;
     private int refreshInProgress;
+    private long lastAccountRefreshAttemptUtcTicks;
+
+    private static readonly TimeSpan HoverRefreshAge = TimeSpan.FromMinutes(2);
+    private static readonly TimeSpan BackgroundRefreshInterval = TimeSpan.FromMinutes(15);
 
     public TrayApplicationContext()
     {
@@ -22,6 +28,7 @@ public sealed class TrayApplicationContext : ApplicationContext
             "sessions");
 
         reader = new CodexUsageLogReader(sessionsDirectory);
+        accountReader = new CodexAccountRateLimitReader();
         watcher = new UsageFileWatcher(sessionsDirectory);
         watcher.UsageFileChanged += OnUsageFileChanged;
 
@@ -42,7 +49,23 @@ public sealed class TrayApplicationContext : ApplicationContext
             ContextMenuStrip = menu,
             Visible = true
         };
-        notifyIcon.MouseMove += (_, _) => UpdateTooltip();
+        notifyIcon.MouseMove += (_, _) =>
+        {
+            UpdateTooltip();
+            var lastAttempt = new DateTimeOffset(
+                Interlocked.Read(ref lastAccountRefreshAttemptUtcTicks),
+                TimeSpan.Zero);
+            if (DateTimeOffset.UtcNow - lastAttempt >= HoverRefreshAge)
+            {
+                _ = RefreshAllAsync();
+            }
+        };
+
+        accountRefreshTimer = new System.Threading.Timer(
+            _ => _ = RefreshAllAsync(),
+            null,
+            BackgroundRefreshInterval,
+            BackgroundRefreshInterval);
 
         _ = RefreshAllAsync();
     }
@@ -67,6 +90,11 @@ public sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
+            if (latest?.AvailableResetCredits is not null)
+            {
+                snapshot = snapshot with { AvailableResetCredits = latest.AvailableResetCredits };
+            }
+
             PostToUi(() => ApplySnapshot(snapshot));
         }
         catch (OperationCanceledException)
@@ -85,15 +113,17 @@ public sealed class TrayApplicationContext : ApplicationContext
         PostToUi(() => refreshItem.Enabled = false);
         try
         {
-            var snapshot = await reader.FindLatestAsync(shutdown.Token);
+            Interlocked.Exchange(ref lastAccountRefreshAttemptUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
+            var snapshot = await accountReader.ReadAsync(shutdown.Token) ??
+                           await reader.FindLatestAsync(shutdown.Token);
             PostToUi(() =>
             {
-                if (snapshot is null)
+                if (snapshot is null && latest is null)
                 {
                     statusItem.Text = "尚未找到 Codex 7d 額度資料";
                     notifyIcon.Text = "Codex 7d 額度：尚無資料";
                 }
-                else
+                else if (snapshot is not null)
                 {
                     ApplySnapshot(snapshot);
                 }
@@ -144,6 +174,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         shutdown.Cancel();
         watcher.UsageFileChanged -= OnUsageFileChanged;
         watcher.Dispose();
+        accountRefreshTimer.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();
         currentIcon?.Dispose();

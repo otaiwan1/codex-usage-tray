@@ -1,6 +1,6 @@
 # Decisions
 
-## D-001: Read the local Codex rate-limit event stream
+## D-001: Read the local Codex rate-limit event stream (superseded by D-005)
 
 **Context:** The product needs the account's seven-day percentage and reset time. Official public documentation does not establish a supported account-usage REST endpoint for this UI state.
 
@@ -9,6 +9,16 @@
 **Rationale:** This reuses data already written by Codex, requires no additional authentication, and supports event-driven updates with no recurring network cost.
 
 **Consequences:** Values are last-known rather than independently refreshed, and a future Codex schema change may require a parser update. The tooltip exposes the last report time so staleness is visible.
+
+## D-005: Prefer the account-level Codex app-server snapshot
+
+**Context:** Local session JSONL does not change while the user drives Codex sessions on remote SSH hosts, so its last-known percentage can lag behind Codex Desktop.
+
+**Decision:** Use the documented local `codex app-server` initialization handshake and read-only `account/rateLimits/read` method as the primary source. Prefer `rateLimitsByLimitId.codex`; use the legacy single-bucket response only when it is unlabelled or labelled `codex`. Keep JSONL filesystem events as a low-latency local update and offline fallback.
+
+**Rationale:** The app-server returns the current account snapshot shared across local and remote sessions without reading credentials or session content. A short-lived request at startup, manual refresh, stale hover, and a 15-minute background interval bounds CPU and network use.
+
+**Consequences:** Live refresh requires an accessible local `codex.exe` and connectivity. When unavailable, the UI remains functional with last-known JSONL data. The executable is rediscovered on every refresh so startup ordering with ChatGPT Desktop does not permanently disable the live source.
 
 ## D-002: Use a windowless .NET 8 WinForms application
 
