@@ -16,6 +16,9 @@ public sealed class UsageTextFormatterTests
         Assert.Contains("7d 可用 98%", tooltip);
         Assert.Contains("重置 2天3時", tooltip);
         Assert.Contains("可用重置 2", tooltip);
+        Assert.Contains(
+            $"更新 {now.ToLocalTime():MM/dd HH:mm:ss}",
+            tooltip);
         Assert.True(tooltip.Length <= 63);
     }
 
@@ -32,5 +35,18 @@ public sealed class UsageTextFormatterTests
             "plus");
 
         Assert.True(UsageTextFormatter.FormatTooltip(snapshot, now).Length <= 63);
+    }
+
+    [Fact]
+    public void TooltipKeepsUpdateSecondsWhenResetCountIsUnexpectedlyLarge()
+    {
+        var now = new DateTimeOffset(2026, 8, 14, 2, 3, 4, TimeSpan.Zero);
+        var snapshot = new UsageSnapshot(11, now.AddDays(6), now, null, false, "plus", long.MaxValue);
+
+        var tooltip = UsageTextFormatter.FormatTooltip(snapshot, now);
+
+        Assert.Contains("可用重置 999+", tooltip);
+        Assert.Contains($"更新 {now.ToLocalTime():MM/dd HH:mm:ss}", tooltip);
+        Assert.True(tooltip.Length <= 63);
     }
 }

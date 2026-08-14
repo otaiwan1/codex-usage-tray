@@ -3,10 +3,11 @@
 一個低耗能、無主視窗的 Windows tray App：
 
 - tray icon 以放大的彩色文字直接顯示 Codex 7 天額度的剩餘百分比，背景透明。
-- 滑鼠移到 icon 時顯示 reset 倒數、剩餘百分比、可用重置次數與最後更新時間。
+- 滑鼠移到 icon 時顯示 reset 倒數、剩餘百分比、可用重置次數，以及包含秒數的「更新」時間。
 - 透過本機 `codex app-server` 的唯讀 `account/rateLimits/read` 取得帳號最新值，因此在本機操作 remote SSH session 也能更新。
 - 保留 `%USERPROFILE%\.codex\sessions` 的 rate-limit 事件作為即時本機更新與離線備援。
 - 背景每 15 分鐘才同步一次；滑鼠 hover 時僅在資料超過 2 分鐘未同步才查詢，沒有高頻輪詢。
+- 左鍵單擊 tray icon 可立刻重新讀取帳號額度。
 
 ## 一鍵安裝
 
@@ -49,7 +50,7 @@ powershell -ExecutionPolicy Bypass -File .\scripts\CodexUsageTray.ps1 -Action Un
 
 ## 直接使用
 
-執行 `CodexUsageTray.exe` 後，程式只會出現在 system tray。右鍵可立即重新讀取或結束程式。
+執行 `CodexUsageTray.exe` 後，程式只會出現在 system tray。左鍵單擊會立即重新讀取；右鍵選單也可重新讀取或結束程式。
 
 「立即重新讀取」會先向本機 Codex app-server 讀取目前登入帳號的最新額度；若 Codex 執行檔或網路暫時無法使用，才回退到最近一次本機 session event。可用環境變數 `CODEX_USAGE_TRAY_CODEX_EXE` 指定其他 `codex.exe` 路徑。
 

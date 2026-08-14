@@ -16,7 +16,7 @@
 
 **Decision:** Use the documented local `codex app-server` initialization handshake and read-only `account/rateLimits/read` method as the primary source. Prefer `rateLimitsByLimitId.codex`; use the legacy single-bucket response only when it is unlabelled or labelled `codex`. Keep JSONL filesystem events as a low-latency local update and offline fallback.
 
-**Rationale:** The app-server returns the current account snapshot shared across local and remote sessions without reading credentials or session content. A short-lived request at startup, manual refresh, stale hover, and a 15-minute background interval bounds CPU and network use.
+**Rationale:** The app-server returns the current account snapshot shared across local and remote sessions without reading credentials or session content. A short-lived request at startup, left-click/context-menu manual refresh, stale hover, and a 15-minute background interval bounds CPU and network use.
 
 **Consequences:** Live refresh requires an accessible local `codex.exe` and connectivity. When unavailable, the UI remains functional with last-known JSONL data. The executable is rediscovered on every refresh so startup ordering with ChatGPT Desktop does not permanently disable the live source.
 

@@ -26,8 +26,9 @@ The seven-day window is identified by `window_minutes == 10080`. Remaining perce
 
 - Initial launch scans a bounded number of newest files and at most a bounded tail of each file.
 - Local-session updates are filesystem-event driven.
-- An account refresh runs at startup, at most once when hover data is older than two minutes, every 15 minutes while idle, or on manual refresh. Each app-server process is terminated after one response.
+- An account refresh runs at startup, at most once when hover data is older than two minutes, every 15 minutes while idle, or on left-click/context-menu manual refresh. Each app-server process is terminated after one response.
 - The reset countdown is formatted only when the user hovers over the icon.
+- Tooltip update timestamps are labelled and include seconds.
 - No visible main window or high-frequency polling is used.
 
 ## Installation boundary

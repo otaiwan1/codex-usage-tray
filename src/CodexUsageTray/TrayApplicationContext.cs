@@ -60,6 +60,13 @@ public sealed class TrayApplicationContext : ApplicationContext
                 _ = RefreshAllAsync();
             }
         };
+        notifyIcon.MouseClick += (_, eventArgs) =>
+        {
+            if (eventArgs.Button == MouseButtons.Left)
+            {
+                _ = RefreshAllAsync();
+            }
+        };
 
         accountRefreshTimer = new System.Threading.Timer(
             _ => _ = RefreshAllAsync(),

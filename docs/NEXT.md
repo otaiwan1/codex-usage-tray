@@ -4,7 +4,7 @@
 
 - The tray application and per-user lifecycle installer are implemented for `win-x64`.
 - The application reads the current account-level seven-day snapshot through Codex app-server, renders the percentage icon, and keeps filesystem events as a fast fallback.
-- Version `1.0.2` adds correct remote-SSH usage visibility and displays the authoritative available reset count.
+- Version `1.0.3` labels the tooltip update time with seconds and adds immediate left-click refresh.
 
 ## Verification target
 
