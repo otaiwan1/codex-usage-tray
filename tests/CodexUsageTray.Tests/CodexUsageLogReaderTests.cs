@@ -20,7 +20,8 @@ public sealed class CodexUsageLogReaderTests : IDisposable
         var snapshot = await reader.FindLatestAsync();
 
         Assert.NotNull(snapshot);
-        Assert.Equal(93, snapshot.RemainingPercent);
+        Assert.NotNull(snapshot.SevenDayLimit);
+        Assert.Equal(93, snapshot.SevenDayLimit.RemainingPercent);
         Assert.Equal(new DateTimeOffset(2026, 8, 13, 12, 0, 0, TimeSpan.Zero), snapshot.ReportedAt);
     }
 
@@ -35,7 +36,8 @@ public sealed class CodexUsageLogReaderTests : IDisposable
         var snapshot = await reader.ReadLatestFromFileAsync(path);
 
         Assert.NotNull(snapshot);
-        Assert.Equal(98, snapshot.RemainingPercent);
+        Assert.NotNull(snapshot.SevenDayLimit);
+        Assert.Equal(98, snapshot.SevenDayLimit.RemainingPercent);
     }
 
     private static string Event(string timestamp, double usedPercent) =>

@@ -13,6 +13,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly CancellationTokenSource shutdown = new();
     private UsageSnapshot? latest;
     private Icon? currentIcon;
+    private UsagePeriod selectedPeriod = UsagePeriod.SevenDays;
     private int refreshInProgress;
     private long lastAccountRefreshAttemptUtcTicks;
 
@@ -41,7 +42,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(refreshItem);
         menu.Items.Add(exitItem);
 
-        currentIcon = TrayIconRenderer.Render(null);
+        currentIcon = TrayIconRenderer.Render(null, selectedPeriod);
         notifyIcon = new NotifyIcon
         {
             Icon = currentIcon,
@@ -64,6 +65,8 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             if (eventArgs.Button == MouseButtons.Left)
             {
+                selectedPeriod = selectedPeriod.Toggle();
+                UpdateDisplay();
                 _ = RefreshAllAsync();
             }
         };
@@ -97,9 +100,14 @@ public sealed class TrayApplicationContext : ApplicationContext
                 return;
             }
 
-            if (latest?.AvailableResetCredits is not null)
+            if (latest is not null)
             {
-                snapshot = snapshot with { AvailableResetCredits = latest.AvailableResetCredits };
+                snapshot = snapshot with
+                {
+                    FiveHourLimit = snapshot.FiveHourLimit ?? latest.FiveHourLimit,
+                    SevenDayLimit = snapshot.SevenDayLimit ?? latest.SevenDayLimit,
+                    AvailableResetCredits = latest.AvailableResetCredits ?? snapshot.AvailableResetCredits
+                };
             }
 
             PostToUi(() => ApplySnapshot(snapshot));
@@ -127,8 +135,7 @@ public sealed class TrayApplicationContext : ApplicationContext
             {
                 if (snapshot is null && latest is null)
                 {
-                    statusItem.Text = "尚未找到 Codex 7d 額度資料";
-                    notifyIcon.Text = "Codex 7d 額度：尚無資料";
+                    UpdateDisplay();
                 }
                 else if (snapshot is not null)
                 {
@@ -150,10 +157,27 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void ApplySnapshot(UsageSnapshot snapshot)
     {
         latest = snapshot;
-        statusItem.Text = $"Codex 7d 可用 {snapshot.RemainingPercent}%";
-        UpdateTooltip();
+        UpdateDisplay();
+    }
 
-        var nextIcon = TrayIconRenderer.Render(snapshot.RemainingPercent);
+    private void UpdateDisplay()
+    {
+        var label = selectedPeriod.ToDisplayLabel();
+        var limit = latest?.GetLimit(selectedPeriod);
+        statusItem.Text = limit is null
+            ? $"尚未找到 Codex {label} 額度資料"
+            : $"Codex {label} 可用 {limit.RemainingPercent}%";
+
+        if (latest is null)
+        {
+            notifyIcon.Text = $"Codex {label} 額度：尚無資料";
+        }
+        else
+        {
+            UpdateTooltip();
+        }
+
+        var nextIcon = TrayIconRenderer.Render(limit?.RemainingPercent, selectedPeriod);
         notifyIcon.Icon = nextIcon;
         var previous = currentIcon;
         currentIcon = nextIcon;

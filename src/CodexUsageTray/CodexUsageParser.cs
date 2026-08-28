@@ -5,6 +5,7 @@ namespace CodexUsageTray;
 
 public static class CodexUsageParser
 {
+    private const int FiveHoursInMinutes = 5 * 60;
     private const int SevenDaysInMinutes = 7 * 24 * 60;
 
     public static bool TryParseLine(string line, out UsageSnapshot? snapshot)
@@ -30,10 +31,9 @@ public static class CodexUsageParser
                 return false;
             }
 
-            var window = FindSevenDayWindow(rateLimits);
-            if (window is null ||
-                !TryGetDouble(window.Value, "used_percent", out var usedPercent) ||
-                !TryGetInt64(window.Value, "resets_at", out var resetsAtUnix))
+            var fiveHourLimit = FindWindow(rateLimits, FiveHoursInMinutes);
+            var sevenDayLimit = FindWindow(rateLimits, SevenDaysInMinutes);
+            if (fiveHourLimit is null && sevenDayLimit is null)
             {
                 return false;
             }
@@ -70,8 +70,8 @@ public static class CodexUsageParser
 
             TryGetString(rateLimits, "plan_type", out var planType);
             snapshot = new UsageSnapshot(
-                usedPercent,
-                DateTimeOffset.FromUnixTimeSeconds(resetsAtUnix),
+                fiveHourLimit,
+                sevenDayLimit,
                 reportedAt,
                 balance,
                 unlimited,
@@ -88,17 +88,26 @@ public static class CodexUsageParser
         }
     }
 
-    private static JsonElement? FindSevenDayWindow(JsonElement rateLimits)
+    private static UsageLimit? FindWindow(JsonElement rateLimits, int windowDurationMinutes)
     {
         foreach (var name in new[] { "primary", "secondary" })
         {
-            if (rateLimits.TryGetProperty(name, out var candidate) &&
-                candidate.ValueKind == JsonValueKind.Object &&
-                TryGetInt64(candidate, "window_minutes", out var minutes) &&
-                minutes == SevenDaysInMinutes)
+            if (!rateLimits.TryGetProperty(name, out var candidate) ||
+                candidate.ValueKind != JsonValueKind.Object ||
+                !TryGetInt64(candidate, "window_minutes", out var minutes) ||
+                minutes != windowDurationMinutes ||
+                !TryGetDouble(candidate, "used_percent", out var usedPercent))
             {
-                return candidate;
+                continue;
             }
+
+            DateTimeOffset? resetsAt = null;
+            if (TryGetInt64(candidate, "resets_at", out var resetsAtUnix))
+            {
+                resetsAt = DateTimeOffset.FromUnixTimeSeconds(resetsAtUnix);
+            }
+
+            return new UsageLimit(usedPercent, resetsAt);
         }
 
         return null;

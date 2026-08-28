@@ -5,7 +5,7 @@ namespace CodexUsageTray;
 
 public static class TrayIconRenderer
 {
-    public static Icon Render(int? remainingPercent)
+    public static Icon Render(int? remainingPercent, UsagePeriod period)
     {
         const int size = 32;
         using var bitmap = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -25,7 +25,7 @@ public static class TrayIconRenderer
         };
 
         var text = remainingPercent?.ToString() ?? "--";
-        using var glyphs = CreateMaximizedGlyphs(text, size);
+        using var glyphs = CreateMaximizedGlyphs(text, new RectangleF(1.5f, 1.5f, 29f, 29f));
         using var outline = new Pen(Color.FromArgb(230, 10, 12, 15), 1.5f)
         {
             LineJoin = LineJoin.Round
@@ -33,6 +33,7 @@ public static class TrayIconRenderer
         using var fill = new SolidBrush(textColor);
         graphics.DrawPath(outline, glyphs);
         graphics.FillPath(fill, glyphs);
+        DrawPeriodBadge(graphics, period);
 
         var handle = bitmap.GetHicon();
         try
@@ -46,27 +47,49 @@ public static class TrayIconRenderer
         }
     }
 
-    private static GraphicsPath CreateMaximizedGlyphs(string text, int iconSize)
+    private static void DrawPeriodBadge(Graphics graphics, UsagePeriod period)
+    {
+        var badgeColor = period switch
+        {
+            UsagePeriod.FiveHours => Color.FromArgb(0, 184, 230),
+            UsagePeriod.SevenDays => Color.FromArgb(131, 112, 255),
+            _ => throw new ArgumentOutOfRangeException(nameof(period))
+        };
+        var badgeText = period == UsagePeriod.FiveHours ? "5" : "7";
+        var badgeBounds = new RectangleF(18f, 18f, 12.5f, 12.5f);
+        using var badgeFill = new SolidBrush(badgeColor);
+        using var badgeOutline = new Pen(Color.FromArgb(245, 10, 12, 15), 1.25f);
+        graphics.FillEllipse(badgeFill, badgeBounds);
+        graphics.DrawEllipse(badgeOutline, badgeBounds);
+
+        using var badgeGlyph = CreateMaximizedGlyphs(badgeText, new RectangleF(21.25f, 20f, 6f, 8.5f));
+        using var glyphOutline = new Pen(Color.FromArgb(220, 10, 12, 15), 0.9f)
+        {
+            LineJoin = LineJoin.Round
+        };
+        using var glyphFill = new SolidBrush(Color.White);
+        graphics.DrawPath(glyphOutline, badgeGlyph);
+        graphics.FillPath(glyphFill, badgeGlyph);
+    }
+
+    private static GraphicsPath CreateMaximizedGlyphs(string text, RectangleF targetBounds)
     {
         const float initialEmSize = 30f;
-        const float availableSize = 29f;
         var path = new GraphicsPath();
         using var fontFamily = new FontFamily("Segoe UI");
         using var format = (StringFormat)StringFormat.GenericTypographic.Clone();
         path.AddString(text, fontFamily, (int)FontStyle.Bold, initialEmSize, PointF.Empty, format);
 
         var bounds = path.GetBounds();
-        var horizontalScale = availableSize / bounds.Width;
-        var verticalScale = availableSize / bounds.Height;
-        using var transform = new Matrix();
-        transform.Scale(horizontalScale, verticalScale);
-        path.Transform(transform);
+        using var scale = new Matrix();
+        scale.Scale(targetBounds.Width / bounds.Width, targetBounds.Height / bounds.Height);
+        path.Transform(scale);
 
         bounds = path.GetBounds();
         using var center = new Matrix();
         center.Translate(
-            ((iconSize - bounds.Width) / 2f) - bounds.Left,
-            ((iconSize - bounds.Height) / 2f) - bounds.Top);
+            targetBounds.Left + ((targetBounds.Width - bounds.Width) / 2f) - bounds.Left,
+            targetBounds.Top + ((targetBounds.Height - bounds.Height) / 2f) - bounds.Top);
         path.Transform(center);
         return path;
     }

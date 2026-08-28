@@ -4,6 +4,7 @@ namespace CodexUsageTray;
 
 public static class CodexAccountRateLimitParser
 {
+    private const int FiveHoursInMinutes = 5 * 60;
     private const int SevenDaysInMinutes = 7 * 24 * 60;
 
     public static bool TryParseResponse(
@@ -28,16 +29,11 @@ public static class CodexAccountRateLimitParser
                 return false;
             }
 
-            var window = FindSevenDayWindow(rateLimits);
-            if (window is null || !TryGetDouble(window.Value, "usedPercent", out var usedPercent))
+            var fiveHourLimit = FindWindow(rateLimits, FiveHoursInMinutes);
+            var sevenDayLimit = FindWindow(rateLimits, SevenDaysInMinutes);
+            if (fiveHourLimit is null && sevenDayLimit is null)
             {
                 return false;
-            }
-
-            DateTimeOffset? resetsAt = null;
-            if (TryGetInt64(window.Value, "resetsAt", out var resetsAtUnix))
-            {
-                resetsAt = DateTimeOffset.FromUnixTimeSeconds(resetsAtUnix);
             }
 
             string? balance = null;
@@ -78,8 +74,8 @@ public static class CodexAccountRateLimitParser
             }
 
             snapshot = new UsageSnapshot(
-                usedPercent,
-                resetsAt,
+                fiveHourLimit,
+                sevenDayLimit,
                 reportedAt,
                 balance,
                 unlimited,
@@ -122,17 +118,26 @@ public static class CodexAccountRateLimitParser
         return false;
     }
 
-    private static JsonElement? FindSevenDayWindow(JsonElement rateLimits)
+    private static UsageLimit? FindWindow(JsonElement rateLimits, int windowDurationMinutes)
     {
         foreach (var name in new[] { "primary", "secondary" })
         {
-            if (rateLimits.TryGetProperty(name, out var candidate) &&
-                candidate.ValueKind == JsonValueKind.Object &&
-                TryGetInt64(candidate, "windowDurationMins", out var minutes) &&
-                minutes == SevenDaysInMinutes)
+            if (!rateLimits.TryGetProperty(name, out var candidate) ||
+                candidate.ValueKind != JsonValueKind.Object ||
+                !TryGetInt64(candidate, "windowDurationMins", out var minutes) ||
+                minutes != windowDurationMinutes ||
+                !TryGetDouble(candidate, "usedPercent", out var usedPercent))
             {
-                return candidate;
+                continue;
             }
+
+            DateTimeOffset? resetsAt = null;
+            if (TryGetInt64(candidate, "resetsAt", out var resetsAtUnix))
+            {
+                resetsAt = DateTimeOffset.FromUnixTimeSeconds(resetsAtUnix);
+            }
+
+            return new UsageLimit(usedPercent, resetsAt);
         }
 
         return null;

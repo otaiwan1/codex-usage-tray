@@ -371,13 +371,13 @@ switch ($Action) {
         }
 
         Set-ShortcutState $monitorSetting $startupMonitorShortcut {
-            Set-Shortcut $startupMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 7d 剩餘額度'
+            Set-Shortcut $startupMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 5h/7d 剩餘額度'
         }
         Set-ShortcutState $chatGptSetting $startupChatGptShortcut {
             Set-Shortcut $startupChatGptShortcut (Join-Path $env:WINDIR 'explorer.exe') "shell:AppsFolder\$resolvedChatGptAppId" $null '登入 Windows 時啟動 ChatGPT'
         }
         Set-ShortcutState $startMenuSetting $startMenuMonitorShortcut {
-            Set-Shortcut $startMenuMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 7d 剩餘額度'
+            Set-Shortcut $startMenuMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 5h/7d 剩餘額度'
         }
 
         $hash = (Get-FileHash -LiteralPath $installedExecutable -Algorithm SHA256).Hash
@@ -402,13 +402,13 @@ switch ($Action) {
             }
 
             Set-ShortcutState $monitorSetting $startupMonitorShortcut {
-                Set-Shortcut $startupMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 7d 剩餘額度'
+                Set-Shortcut $startupMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 5h/7d 剩餘額度'
             }
             Set-ShortcutState $chatGptSetting $startupChatGptShortcut {
                 Set-Shortcut $startupChatGptShortcut (Join-Path $env:WINDIR 'explorer.exe') "shell:AppsFolder\$resolvedChatGptAppId" $null '登入 Windows 時啟動 ChatGPT'
             }
             Set-ShortcutState $startMenuSetting $startMenuMonitorShortcut {
-                Set-Shortcut $startMenuMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 7d 剩餘額度'
+                Set-Shortcut $startMenuMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 5h/7d 剩餘額度'
             }
 
             Save-State $InstallDirectory $sourceHash $resolvedChatGptAppId

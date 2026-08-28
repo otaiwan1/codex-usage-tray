@@ -13,14 +13,16 @@ public sealed class CodexUsageParserTests
 
         Assert.True(parsed);
         Assert.NotNull(snapshot);
-        Assert.Equal(88, snapshot.RemainingPercent);
+        Assert.Null(snapshot.FiveHourLimit);
+        Assert.NotNull(snapshot.SevenDayLimit);
+        Assert.Equal(88, snapshot.SevenDayLimit.RemainingPercent);
         Assert.Equal("3", snapshot.CreditBalance);
         Assert.Equal("plus", snapshot.PlanType);
-        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1787197008), snapshot.ResetsAt);
+        Assert.Equal(DateTimeOffset.FromUnixTimeSeconds(1787197008), snapshot.SevenDayLimit.ResetsAt);
     }
 
     [Fact]
-    public void SelectsSevenDaySecondaryWindow()
+    public void ParsesFiveHourAndSevenDayWindows()
     {
         const string json = """
             {"timestamp":"2026-08-13T12:54:37Z","type":"event_msg","payload":{"type":"token_count","rate_limits":{"primary":{"used_percent":50,"window_minutes":300,"resets_at":1787190000},"secondary":{"used_percent":7,"window_minutes":10080,"resets_at":1787197008},"credits":{"unlimited":true,"balance":null}}}}
@@ -28,7 +30,10 @@ public sealed class CodexUsageParserTests
 
         Assert.True(CodexUsageParser.TryParseLine(json, out var snapshot));
         Assert.NotNull(snapshot);
-        Assert.Equal(93, snapshot.RemainingPercent);
+        Assert.NotNull(snapshot.FiveHourLimit);
+        Assert.Equal(50, snapshot.FiveHourLimit.RemainingPercent);
+        Assert.NotNull(snapshot.SevenDayLimit);
+        Assert.Equal(93, snapshot.SevenDayLimit.RemainingPercent);
         Assert.True(snapshot.UnlimitedCredits);
     }
 
@@ -38,17 +43,17 @@ public sealed class CodexUsageParserTests
     [InlineData(33.5, 67)]
     public void RemainingPercentageIsRoundedAndClamped(double used, int expected)
     {
-        var snapshot = new UsageSnapshot(used, DateTimeOffset.UtcNow, DateTimeOffset.UtcNow, null, false, null);
+        var limit = new UsageLimit(used, DateTimeOffset.UtcNow);
 
-        Assert.Equal(expected, snapshot.RemainingPercent);
+        Assert.Equal(expected, limit.RemainingPercent);
     }
 
     [Theory]
     [InlineData("")]
     [InlineData("not json")]
     [InlineData("{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\"}}")]
-    [InlineData("{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"rate_limits\":{\"primary\":{\"used_percent\":2,\"window_minutes\":300,\"resets_at\":1}}}}")]
-    public void RejectsMissingOrMalformedSevenDayUsage(string input)
+    [InlineData("{\"type\":\"event_msg\",\"payload\":{\"type\":\"token_count\",\"rate_limits\":{\"primary\":{\"used_percent\":2,\"window_minutes\":60,\"resets_at\":1}}}}")]
+    public void RejectsMissingOrMalformedUsage(string input)
     {
         Assert.False(CodexUsageParser.TryParseLine(input, out var snapshot));
         Assert.Null(snapshot);

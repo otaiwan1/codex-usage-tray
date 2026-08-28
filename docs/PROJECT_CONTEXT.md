@@ -2,13 +2,13 @@
 
 ## Purpose
 
-Codex Usage Tray is a low-overhead Windows tray application that shows the remaining Codex seven-day usage percentage directly in its icon. Hover text shows the reset countdown, available percentage, earned reset count, and the time of the last refresh.
+Codex Usage Tray is a low-overhead Windows tray application that shows either the remaining Codex five-hour or seven-day usage percentage directly in its icon. Left-click switches the displayed period and attempts a refresh. Multiline hover text always shows both periods with their available percentages and reset countdowns, followed by the earned reset count and the time of the last refresh.
 
 ## Architecture
 
 - `src/CodexUsageTray`: windowless WinForms application and tray UI.
 - `CodexAccountRateLimitReader`: launches a short-lived local `codex app-server`, performs the documented initialization handshake, and reads the account-level rate-limit snapshot.
-- `CodexAccountRateLimitParser`: selects `rateLimitsByLimitId.codex`, with the compatible single-bucket response as fallback, then extracts only the seven-day window and reset-credit count.
+- `CodexAccountRateLimitParser`: selects `rateLimitsByLimitId.codex`, with the compatible single-bucket response as fallback, then extracts the five-hour and seven-day windows plus the reset-credit count.
 - `CodexUsageLogReader`: reads only recent tails of local Codex session JSONL files as an offline fallback and for immediate local-session updates.
 - `UsageFileWatcher`: uses `FileSystemWatcher` plus a short debounce to react to Codex writes without periodic polling.
 - `TrayIconRenderer`: renders a small percentage icon using Windows GDI+.
@@ -20,14 +20,14 @@ Codex Usage Tray is a low-overhead Windows tray application that shows the remai
 
 The primary source is the documented, read-only `account/rateLimits/read` method exposed by the user's local Codex app-server. The monitor neither reads nor copies authentication material; the Codex process uses its existing login and returns only structured account-limit fields. The application also reads `%USERPROFILE%\.codex\sessions\**\*.jsonl` as a fallback. It never retains, logs, or transmits session contents.
 
-The seven-day window is identified by `window_minutes == 10080`. Remaining percentage is `100 - used_percent`, clamped to 0-100. Credits are displayed separately because they are not the same as the percentage-based allowance.
+The five-hour and seven-day windows are identified by `window_minutes == 300` and `window_minutes == 10080`, respectively. Remaining percentage is `100 - used_percent`, clamped to 0-100. Credits are displayed separately because they are not the same as the percentage-based allowance.
 
 ## Runtime behavior
 
 - Initial launch scans a bounded number of newest files and at most a bounded tail of each file.
 - Local-session updates are filesystem-event driven.
-- An account refresh runs at startup, at most once when hover data is older than two minutes, every 15 minutes while idle, or on left-click/context-menu manual refresh. Each app-server process is terminated after one response.
-- The reset countdown is formatted only when the user hovers over the icon.
+- An account refresh runs at startup, at most once when hover data is older than two minutes, every 15 minutes while idle, or on left-click/context-menu manual refresh. Left-click also switches the selected five-hour/seven-day period before attempting the refresh. Each app-server process is terminated after one response.
+- Both reset countdowns are formatted only when the user hovers over the icon; the tooltip always lists the five-hour and seven-day details on separate lines regardless of the icon's selected period.
 - Tooltip update timestamps are labelled and include seconds.
 - No visible main window or high-frequency polling is used.
 

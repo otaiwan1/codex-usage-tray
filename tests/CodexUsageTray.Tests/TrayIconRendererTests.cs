@@ -7,7 +7,7 @@ public sealed class TrayIconRendererTests
     [Fact]
     public void PercentageGlyphUsesTransparentBackgroundAndAvailableCanvas()
     {
-        using var icon = TrayIconRenderer.Render(98);
+        using var icon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
         using var bitmap = icon.ToBitmap();
 
         var visible = new List<Point>();
@@ -29,5 +29,28 @@ public sealed class TrayIconRendererTests
         Assert.True(visibleHeight >= 24, $"Visible glyph height was {visibleHeight}px.");
         Assert.Equal(0, bitmap.GetPixel(0, 0).A);
         Assert.Equal(0, bitmap.GetPixel(31, 31).A);
+    }
+
+    [Fact]
+    public void PeriodBadgeDistinguishesFiveHoursFromSevenDays()
+    {
+        using var fiveHourIcon = TrayIconRenderer.Render(98, UsagePeriod.FiveHours);
+        using var sevenDayIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
+        using var fiveHourBitmap = fiveHourIcon.ToBitmap();
+        using var sevenDayBitmap = sevenDayIcon.ToBitmap();
+
+        var differentBadgePixels = 0;
+        for (var y = 18; y < 31; y++)
+        {
+            for (var x = 18; x < 31; x++)
+            {
+                if (fiveHourBitmap.GetPixel(x, y) != sevenDayBitmap.GetPixel(x, y))
+                {
+                    differentBadgePixels++;
+                }
+            }
+        }
+
+        Assert.True(differentBadgePixels > 8, $"Only {differentBadgePixels} badge pixels differed.");
     }
 }

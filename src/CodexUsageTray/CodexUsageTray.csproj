@@ -11,6 +11,6 @@
     <RootNamespace>CodexUsageTray</RootNamespace>
     <Version>1.0.3</Version>
     <Product>Codex Usage Tray</Product>
-    <Description>Low-overhead Windows tray monitor for Codex seven-day usage.</Description>
+    <Description>Low-overhead Windows tray monitor for Codex five-hour and seven-day usage.</Description>
   </PropertyGroup>
 </Project>

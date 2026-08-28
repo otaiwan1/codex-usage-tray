@@ -20,6 +20,16 @@
 
 **Consequences:** Live refresh requires an accessible local `codex.exe` and connectivity. When unavailable, the UI remains functional with last-known JSONL data. The executable is rediscovered on every refresh so startup ordering with ChatGPT Desktop does not permanently disable the live source.
 
+## D-006: Keep both usage windows in one snapshot
+
+**Context:** Codex now exposes distinct five-hour and seven-day usage windows, while the tray icon has room for only one percentage at a time.
+
+**Decision:** Parse both `300`-minute and `10080`-minute windows into the same snapshot. Default the icon to seven days; on left-click, switch its selected period immediately, identify it with a `5` or `7` badge, and attempt the existing bounded account refresh. Keep the hover tooltip independent of that selection and always list both windows with their reset details on separate lines.
+
+**Rationale:** A view-only switch avoids extra polling or duplicate app-server requests while keeping both limits quickly accessible and visually distinguishable.
+
+**Consequences:** Older fallback events that contain only one supported window show the other period as unavailable until a snapshot containing it is read.
+
 ## D-002: Use a windowless .NET 8 WinForms application
 
 **Context:** The application is Windows-only and should consume minimal resources.
