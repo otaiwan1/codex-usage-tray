@@ -41,6 +41,12 @@ public sealed record UsageSnapshot(
     string? PlanType,
     long? AvailableResetCredits = null)
 {
+    public bool HasBothWindows => FiveHourLimit is not null && SevenDayLimit is not null;
+
+    public UsagePeriod ResolvePeriod(UsagePeriod preferred) => GetLimit(preferred) is not null
+        ? preferred
+        : GetLimit(preferred.Toggle()) is not null ? preferred.Toggle() : preferred;
+
     public UsageLimit? GetLimit(UsagePeriod period) => period switch
     {
         UsagePeriod.FiveHours => FiveHourLimit,

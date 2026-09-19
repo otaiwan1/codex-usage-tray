@@ -10,14 +10,26 @@ public sealed class CodexAccountRateLimitReader
 {
     private static readonly TimeSpan RequestTimeout = TimeSpan.FromSeconds(20);
     private readonly IReadOnlyList<string>? configuredExecutableCandidates;
+    private readonly string? codexHome;
+    private readonly bool useIsolatedFileCredentials;
 
-    public CodexAccountRateLimitReader(IEnumerable<string>? executableCandidates = null)
+    public CodexAccountRateLimitReader(
+        IEnumerable<string>? executableCandidates = null,
+        string? codexHome = null,
+        bool useIsolatedFileCredentials = false)
     {
         configuredExecutableCandidates = executableCandidates?.ToArray();
+        this.codexHome = codexHome;
+        this.useIsolatedFileCredentials = useIsolatedFileCredentials;
     }
 
     public async Task<UsageSnapshot?> ReadAsync(CancellationToken cancellationToken = default)
     {
+        if (codexHome is not null && !Path.IsPathFullyQualified(codexHome))
+        {
+            return null;
+        }
+
         var candidates = (configuredExecutableCandidates ?? FindExecutableCandidates().ToArray())
             .Where(File.Exists)
             .Distinct(StringComparer.OrdinalIgnoreCase);
@@ -26,7 +38,7 @@ public sealed class CodexAccountRateLimitReader
             cancellationToken.ThrowIfCancellationRequested();
             try
             {
-                var snapshot = await ReadFromProcessAsync(executable, cancellationToken);
+                var snapshot = await ReadFromProcessAsync(executable, codexHome, useIsolatedFileCredentials, cancellationToken);
                 if (snapshot is not null)
                 {
                     return snapshot;
@@ -47,6 +59,8 @@ public sealed class CodexAccountRateLimitReader
 
     private static async Task<UsageSnapshot?> ReadFromProcessAsync(
         string executable,
+        string? codexHome,
+        bool useIsolatedFileCredentials,
         CancellationToken cancellationToken)
     {
         using var timeout = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
@@ -64,6 +78,17 @@ public sealed class CodexAccountRateLimitReader
             StandardOutputEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false),
             StandardErrorEncoding = new UTF8Encoding(encoderShouldEmitUTF8Identifier: false)
         };
+        if (codexHome is not null)
+        {
+            startInfo.Environment["CODEX_HOME"] = codexHome;
+        }
+        if (useIsolatedFileCredentials)
+        {
+            startInfo.Environment.Remove("CODEX_ACCESS_TOKEN");
+            startInfo.Environment.Remove("CODEX_API_KEY");
+            startInfo.ArgumentList.Add("-c");
+            startInfo.ArgumentList.Add("cli_auth_credentials_store=file");
+        }
         startInfo.ArgumentList.Add("app-server");
         startInfo.ArgumentList.Add("--listen");
         startInfo.ArgumentList.Add("stdio://");

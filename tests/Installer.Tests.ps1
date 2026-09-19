@@ -31,10 +31,26 @@ try {
     Assert-True (Test-Path -LiteralPath (Join-Path $startupDirectory 'ChatGPT (Codex Usage Tray).lnk')) 'ChatGPT startup shortcut created'
     Assert-True (Test-Path -LiteralPath (Join-Path $programsDirectory 'Codex Usage Tray.lnk')) 'Start Menu shortcut created'
     Assert-True (Test-Path -LiteralPath (Join-Path $stateDirectory 'install-state.json')) 'state created'
+    $defaultSettings = Get-Content -LiteralPath (Join-Path $stateDirectory 'monitor-settings.json') -Raw | ConvertFrom-Json
+    Assert-True ($defaultSettings.accountSource -eq 'Local') 'local account is the default'
 
     $statusText = (& $installer -Action Status -InstallDirectory $installDirectory `
         -StartupDirectory $startupDirectory -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory | Out-String)
     Assert-True ($statusText -match 'Running\s+: False') 'status is scoped to the installed executable path'
+
+    $separateHome = Join-Path $root 'separate-codex-home'
+    & $installer -Action Configure -AccountSource Separate -CodexHome $separateHome -SkipDeviceLogin -NoLaunch `
+        -InstallDirectory $installDirectory -StartupDirectory $startupDirectory `
+        -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory
+    $separateSettings = Get-Content -LiteralPath (Join-Path $stateDirectory 'monitor-settings.json') -Raw | ConvertFrom-Json
+    Assert-True ($separateSettings.accountSource -eq 'Separate') 'separate account configured'
+    Assert-True ($separateSettings.codexHome -eq $separateHome) 'separate CODEX_HOME configured'
+
+    & $installer -Action Configure -AccountSource Local -NoLaunch `
+        -InstallDirectory $installDirectory -StartupDirectory $startupDirectory `
+        -ProgramsDirectory $programsDirectory -StateDirectory $stateDirectory
+    $localSettings = Get-Content -LiteralPath (Join-Path $stateDirectory 'monitor-settings.json') -Raw | ConvertFrom-Json
+    Assert-True ($localSettings.accountSource -eq 'Local') 'local account restored without touching separate login'
 
     $lockScript = Join-Path $root 'HoldLock.ps1'
     $lockSignal = Join-Path $root 'lock-acquired'

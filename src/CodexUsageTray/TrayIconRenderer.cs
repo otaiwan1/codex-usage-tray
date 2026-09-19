@@ -5,7 +5,7 @@ namespace CodexUsageTray;
 
 public static class TrayIconRenderer
 {
-    public static Icon Render(int? remainingPercent, UsagePeriod period)
+    public static Icon Render(int? remainingPercent, UsagePeriod period, bool showPeriodBadge = true)
     {
         const int size = 32;
         using var bitmap = new Bitmap(size, size, System.Drawing.Imaging.PixelFormat.Format32bppArgb);
@@ -33,7 +33,10 @@ public static class TrayIconRenderer
         using var fill = new SolidBrush(textColor);
         graphics.DrawPath(outline, glyphs);
         graphics.FillPath(fill, glyphs);
-        DrawPeriodBadge(graphics, period);
+        if (showPeriodBadge)
+        {
+            DrawPeriodBadge(graphics, period);
+        }
 
         var handle = bitmap.GetHicon();
         try

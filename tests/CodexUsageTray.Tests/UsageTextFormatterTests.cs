@@ -31,7 +31,7 @@ public sealed class UsageTextFormatterTests
     }
 
     [Fact]
-    public void TooltipAlwaysListsBothWindowsWhenOneIsUnavailable()
+    public void SevenDayOnlyTooltipOmitsUnavailableFiveHourWindow()
     {
         var now = DateTimeOffset.UtcNow;
         var snapshot = new UsageSnapshot(
@@ -44,8 +44,9 @@ public sealed class UsageTextFormatterTests
 
         var tooltip = UsageTextFormatter.FormatTooltip(snapshot, now);
 
-        Assert.Contains("5h 尚無資料", tooltip);
+        Assert.DoesNotContain("5h", tooltip);
         Assert.Contains("7d 可用 100%", tooltip);
+        Assert.Equal(2, tooltip.Split('\n').Length);
         Assert.True(tooltip.Length <= 63);
     }
 
@@ -74,5 +75,15 @@ public sealed class UsageTextFormatterTests
     {
         Assert.Equal(UsagePeriod.FiveHours, UsagePeriod.SevenDays.Toggle());
         Assert.Equal(UsagePeriod.SevenDays, UsagePeriod.FiveHours.Toggle());
+    }
+
+    [Fact]
+    public void SingleWindowAlwaysResolvesToAvailablePeriod()
+    {
+        var snapshot = new UsageSnapshot(null, new UsageLimit(10, null), DateTimeOffset.UtcNow,
+            null, false, "pro");
+
+        Assert.False(snapshot.HasBothWindows);
+        Assert.Equal(UsagePeriod.SevenDays, snapshot.ResolvePeriod(UsagePeriod.FiveHours));
     }
 }

@@ -53,4 +53,15 @@ public sealed class TrayIconRendererTests
 
         Assert.True(differentBadgePixels > 8, $"Only {differentBadgePixels} badge pixels differed.");
     }
+
+    [Fact]
+    public void SingleWindowIconHasNoPeriodBadge()
+    {
+        using var plainIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays, showPeriodBadge: false);
+        using var badgeIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
+        using var plain = plainIcon.ToBitmap();
+        using var badge = badgeIcon.ToBitmap();
+
+        Assert.NotEqual(plain.GetPixel(29, 24), badge.GetPixel(29, 24));
+    }
 }

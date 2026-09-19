@@ -3,9 +3,9 @@
 ## Current state
 
 - The tray application and per-user lifecycle installer are implemented for `win-x64`.
-- The application reads the current account-level five-hour and seven-day windows through Codex app-server, renders the selected percentage with a `5` or `7` icon badge, and keeps filesystem events as a fast fallback.
-- Left-click switches the selected icon period immediately and attempts a refresh; stale hover refresh remains enabled, and the multiline tooltip always lists both periods with their reset details.
-- Version `1.0.3` labels the tooltip update time with seconds and adds immediate left-click refresh.
+- The application defaults to the local Codex account; installation can opt into a separate device-auth account using an isolated `CODEX_HOME`. Local filesystem fallback is disabled for the separate account to prevent cross-account data.
+- Both windows present: the icon has a `5` or `7` badge and left-click toggles the period while refreshing. Seven-day-only: the icon has no badge and left-click only refreshes. Hover lists only available windows.
+- Version `1.0.4` adds account-source selection and single-window presentation.
 
 ## Verification target
 

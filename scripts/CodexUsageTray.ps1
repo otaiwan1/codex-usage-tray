@@ -17,6 +17,12 @@ Install、Configure、Status 或 Uninstall。
 .PARAMETER StartMenuShortcut
 控制監控程式的 Start Menu 捷徑。
 
+.PARAMETER AccountSource
+Local 為預設，使用目前 Windows 使用者的 Codex 帳號。Separate 使用獨立 CODEX_HOME，並以 device-auth 登入另一帳號。
+
+.PARAMETER CodexHome
+Separate 模式的獨立 Codex 資料夾；預設位於安裝器狀態資料夾內。此路徑不應指向現有的 .codex。
+
 .PARAMETER PackagePath
 使用本機 EXE 而不是從 GitHub Release 下載，適合開發與離線部署。
 
@@ -46,6 +52,12 @@ param(
     [ValidateSet('Default', 'Enable', 'Disable', 'Keep')]
     [string]$StartMenuShortcut = 'Default',
 
+    [ValidateSet('Default', 'Local', 'Separate', 'Keep')]
+    [string]$AccountSource = 'Default',
+    [string]$CodexHome,
+    [string]$CodexExecutable,
+    [switch]$SkipDeviceLogin,
+
     [string]$InstallDirectory = (Join-Path $env:LOCALAPPDATA 'Programs\CodexUsageTray'),
     [string]$PackagePath,
     [string]$PackageUri = 'https://github.com/otaiwan1/codex-usage-tray/releases/latest/download/CodexUsageTray.exe',
@@ -67,6 +79,7 @@ $ErrorActionPreference = 'Stop'
 $monitorShortcutName = 'Codex Usage Tray.lnk'
 $chatGptShortcutName = 'ChatGPT (Codex Usage Tray).lnk'
 $stateFileName = 'install-state.json'
+$monitorSettingsFileName = 'monitor-settings.json'
 $executableName = 'CodexUsageTray.exe'
 
 function Get-FullSafePath {
@@ -93,6 +106,7 @@ function Resolve-Setting {
     }
 
     if ($Action -eq 'Install') {
+        if ($existingState) { return 'Keep' }
         return $InstallDefault
     }
 
@@ -106,6 +120,81 @@ function Get-State {
     }
 
     return Get-Content -LiteralPath $statePath -Raw | ConvertFrom-Json
+}
+
+function Get-MonitorSettings {
+    $settingsPath = Join-Path $StateDirectory $monitorSettingsFileName
+    if (-not (Test-Path -LiteralPath $settingsPath -PathType Leaf)) {
+        return $null
+    }
+
+    return Get-Content -LiteralPath $settingsPath -Raw | ConvertFrom-Json
+}
+
+function Save-MonitorSettings {
+    param([string]$Source, [string]$HomePath)
+
+    New-Item -ItemType Directory -Path $StateDirectory -Force | Out-Null
+    [ordered]@{
+        schemaVersion = 1
+        accountSource = $Source
+        codexHome = $HomePath
+    } | ConvertTo-Json | Set-Content -LiteralPath (Join-Path $StateDirectory $monitorSettingsFileName) -Encoding UTF8
+}
+
+function Invoke-DeviceLogin {
+    param([Parameter(Mandatory)][string]$HomePath)
+
+    $executable = $CodexExecutable
+    if (-not $executable) {
+        $command = Get-Command codex.exe -ErrorAction SilentlyContinue | Select-Object -First 1
+        if ($command) { $executable = $command.Source }
+    }
+    if (-not $executable) {
+        $candidate = Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex\.sandbox-bin\codex.exe'
+        if (Test-Path -LiteralPath $candidate -PathType Leaf) { $executable = $candidate }
+    }
+    if (-not $executable) {
+        throw '找不到 codex.exe；請安裝 Codex CLI，或以 -CodexExecutable 指定它的路徑。'
+    }
+
+    New-Item -ItemType Directory -Path $HomePath -Force | Out-Null
+    $previousHome = $env:CODEX_HOME
+    try {
+        $env:CODEX_HOME = $HomePath
+        Write-Host '請在瀏覽器完成另一個 Codex 帳號的 device-auth 登入；此流程不會修改本機原有帳號。'
+        & $executable -c cli_auth_credentials_store=file login --device-auth
+        if ($LASTEXITCODE -ne 0) {
+            throw "Codex device-auth 登入未完成，exit code: $LASTEXITCODE"
+        }
+    }
+    finally {
+        if ($null -eq $previousHome) { Remove-Item Env:CODEX_HOME -ErrorAction SilentlyContinue }
+        else { $env:CODEX_HOME = $previousHome }
+    }
+}
+
+function Resolve-MonitorAccount {
+    param($ExistingSettings)
+
+    $source = if ($AccountSource -eq 'Default' -or $AccountSource -eq 'Keep') {
+        if ($ExistingSettings -and $ExistingSettings.accountSource -eq 'Separate') { 'Separate' } else { 'Local' }
+    } else { $AccountSource }
+
+    if ($source -eq 'Local') {
+        if ($CodexHome) { throw 'CodexHome 僅適用於 -AccountSource Separate。' }
+        return @{ Source = 'Local'; Home = (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex') }
+    }
+
+    $homePath = if ($CodexHome) { $CodexHome } `
+        elseif ($ExistingSettings -and $ExistingSettings.accountSource -eq 'Separate') { [string]$ExistingSettings.codexHome } `
+        else { Join-Path $StateDirectory 'codex-home' }
+    $homePath = Get-FullSafePath $homePath
+    $localHome = Get-FullSafePath (Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex')
+    if ([string]::Equals($homePath, $localHome, [StringComparison]::OrdinalIgnoreCase)) {
+        throw '獨立帳號的 CodexHome 不可指向本機原有的 .codex。'
+    }
+    return @{ Source = 'Separate'; Home = $homePath }
 }
 
 function Save-State {
@@ -300,6 +389,7 @@ function Get-DownloadedPackage {
 
 function Show-Status {
     $state = Get-State
+    $monitorSettings = Get-MonitorSettings
     $resolvedDirectory = if ($state) { [string]$state.installDirectory } else { Get-FullSafePath $InstallDirectory }
     $executablePath = Join-Path $resolvedDirectory $executableName
     [pscustomobject]@{
@@ -310,6 +400,8 @@ function Show-Status {
         StartMenuShortcut = Test-Path -LiteralPath (Join-Path $ProgramsDirectory $monitorShortcutName)
         Running = Test-MonitorRunning $executablePath
         ChatGptAppId = Get-ChatGptAppId
+        AccountSource = if ($monitorSettings) { [string]$monitorSettings.accountSource } else { 'Local' }
+        CodexHome = if ($monitorSettings) { [string]$monitorSettings.codexHome } else { Join-Path ([Environment]::GetFolderPath('UserProfile')) '.codex' }
     }
 }
 
@@ -323,6 +415,11 @@ if ($existingState -and -not $PSBoundParameters.ContainsKey('InstallDirectory'))
 }
 $InstallDirectory = Get-FullSafePath $InstallDirectory
 $StateDirectory = Get-FullSafePath $StateDirectory
+$existingMonitorSettings = Get-MonitorSettings
+$monitorAccount = Resolve-MonitorAccount $existingMonitorSettings
+$monitorAccountChanged = -not $existingMonitorSettings -or
+    $existingMonitorSettings.accountSource -ne $monitorAccount.Source -or
+    -not [string]::Equals([string]$existingMonitorSettings.codexHome, $monitorAccount.Home, [StringComparison]::OrdinalIgnoreCase)
 
 $monitorSetting = Resolve-Setting $MonitorAutoStart 'Enable'
 $chatGptSetting = Resolve-Setting $ChatGptAutoStart 'Enable'
@@ -351,18 +448,23 @@ switch ($Action) {
         }
 
         Remove-Item -LiteralPath (Join-Path $StateDirectory $stateFileName) -Force -ErrorAction SilentlyContinue
+        Remove-Item -LiteralPath (Join-Path $StateDirectory $monitorSettingsFileName) -Force -ErrorAction SilentlyContinue
         if ((Test-Path -LiteralPath $StateDirectory -PathType Container) -and
             -not (Get-ChildItem -LiteralPath $StateDirectory -Force | Select-Object -First 1)) {
             Remove-Item -LiteralPath $StateDirectory -Force
         }
 
-        Write-Host 'Codex Usage Tray 已解除安裝；ChatGPT Desktop App 本身未被移除。'
+        Write-Host 'Codex Usage Tray 已解除安裝；ChatGPT Desktop App 與獨立帳號的登入資料未被移除。'
         break
     }
 
     'Configure' {
         if (-not (Test-Path -LiteralPath $installedExecutable -PathType Leaf)) {
             throw '尚未安裝 Codex Usage Tray，請先使用 -Action Install。'
+        }
+
+        if ($monitorAccount.Source -eq 'Separate' -and $AccountSource -eq 'Separate' -and -not $SkipDeviceLogin) {
+            Invoke-DeviceLogin $monitorAccount.Home
         }
 
         $resolvedChatGptAppId = Get-ChatGptAppId
@@ -381,7 +483,14 @@ switch ($Action) {
         }
 
         $hash = (Get-FileHash -LiteralPath $installedExecutable -Algorithm SHA256).Hash
+        if ($monitorAccountChanged) {
+            Stop-InstalledMonitor $installedExecutable
+        }
+        Save-MonitorSettings $monitorAccount.Source $monitorAccount.Home
         Save-State $InstallDirectory $hash $resolvedChatGptAppId
+        if ($monitorAccountChanged -and -not $NoLaunch) {
+            Start-Process -FilePath $installedExecutable -WorkingDirectory $InstallDirectory -WindowStyle Hidden
+        }
         Show-Status | Format-List
         break
     }
@@ -390,6 +499,9 @@ switch ($Action) {
         $temporaryDirectory = Join-Path ([IO.Path]::GetTempPath()) "CodexUsageTray-$([Guid]::NewGuid().ToString('N'))"
         New-Item -ItemType Directory -Path $temporaryDirectory | Out-Null
         try {
+            if ($monitorAccount.Source -eq 'Separate' -and $AccountSource -eq 'Separate' -and -not $SkipDeviceLogin) {
+                Invoke-DeviceLogin $monitorAccount.Home
+            }
             $sourcePackage = Get-DownloadedPackage $temporaryDirectory
             $sourceHash = (Get-FileHash -LiteralPath $sourcePackage -Algorithm SHA256).Hash
             New-Item -ItemType Directory -Path $InstallDirectory -Force | Out-Null
@@ -411,6 +523,7 @@ switch ($Action) {
                 Set-Shortcut $startMenuMonitorShortcut $installedExecutable $null $InstallDirectory '顯示 Codex 5h/7d 剩餘額度'
             }
 
+            Save-MonitorSettings $monitorAccount.Source $monitorAccount.Home
             Save-State $InstallDirectory $sourceHash $resolvedChatGptAppId
             if (-not $NoLaunch) {
                 Start-Process -FilePath $installedExecutable -WorkingDirectory $InstallDirectory -WindowStyle Hidden

@@ -5,7 +5,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     private readonly SynchronizationContext uiContext;
     private readonly CodexUsageLogReader reader;
     private readonly CodexAccountRateLimitReader accountReader;
-    private readonly UsageFileWatcher watcher;
+    private readonly UsageFileWatcher? watcher;
+    private readonly MonitorSettings settings;
     private readonly System.Threading.Timer accountRefreshTimer;
     private readonly NotifyIcon notifyIcon;
     private readonly ToolStripMenuItem statusItem;
@@ -23,15 +24,18 @@ public sealed class TrayApplicationContext : ApplicationContext
     public TrayApplicationContext()
     {
         uiContext = SynchronizationContext.Current ?? new WindowsFormsSynchronizationContext();
-        var sessionsDirectory = Path.Combine(
-            Environment.GetFolderPath(Environment.SpecialFolder.UserProfile),
-            ".codex",
-            "sessions");
+        settings = MonitorSettings.Load();
+        var sessionsDirectory = Path.Combine(settings.CodexHome, "sessions");
 
         reader = new CodexUsageLogReader(sessionsDirectory);
-        accountReader = new CodexAccountRateLimitReader();
-        watcher = new UsageFileWatcher(sessionsDirectory);
-        watcher.UsageFileChanged += OnUsageFileChanged;
+        accountReader = new CodexAccountRateLimitReader(
+            codexHome: settings.CodexHome,
+            useIsolatedFileCredentials: settings.AccountSource == MonitorAccountSource.Separate);
+        if (settings.UseLocalSessionFallback)
+        {
+            watcher = new UsageFileWatcher(sessionsDirectory);
+            watcher.UsageFileChanged += OnUsageFileChanged;
+        }
 
         statusItem = new ToolStripMenuItem("正在讀取 Codex 7d 額度…") { Enabled = false };
         refreshItem = new ToolStripMenuItem("立即重新讀取", null, async (_, _) => await RefreshAllAsync());
@@ -42,7 +46,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(refreshItem);
         menu.Items.Add(exitItem);
 
-        currentIcon = TrayIconRenderer.Render(null, selectedPeriod);
+        currentIcon = TrayIconRenderer.Render(null, selectedPeriod, showPeriodBadge: false);
         notifyIcon = new NotifyIcon
         {
             Icon = currentIcon,
@@ -65,7 +69,10 @@ public sealed class TrayApplicationContext : ApplicationContext
         {
             if (eventArgs.Button == MouseButtons.Left)
             {
-                selectedPeriod = selectedPeriod.Toggle();
+                if (latest?.HasBothWindows == true)
+                {
+                    selectedPeriod = selectedPeriod.Toggle();
+                }
                 UpdateDisplay();
                 _ = RefreshAllAsync();
             }
@@ -129,8 +136,11 @@ public sealed class TrayApplicationContext : ApplicationContext
         try
         {
             Interlocked.Exchange(ref lastAccountRefreshAttemptUtcTicks, DateTimeOffset.UtcNow.UtcTicks);
-            var snapshot = await accountReader.ReadAsync(shutdown.Token) ??
-                           await reader.FindLatestAsync(shutdown.Token);
+            var snapshot = await accountReader.ReadAsync(shutdown.Token);
+            if (snapshot is null && settings.UseLocalSessionFallback)
+            {
+                snapshot = await reader.FindLatestAsync(shutdown.Token);
+            }
             PostToUi(() =>
             {
                 if (snapshot is null && latest is null)
@@ -157,6 +167,7 @@ public sealed class TrayApplicationContext : ApplicationContext
     private void ApplySnapshot(UsageSnapshot snapshot)
     {
         latest = snapshot;
+        selectedPeriod = snapshot.ResolvePeriod(selectedPeriod);
         UpdateDisplay();
     }
 
@@ -177,7 +188,7 @@ public sealed class TrayApplicationContext : ApplicationContext
             UpdateTooltip();
         }
 
-        var nextIcon = TrayIconRenderer.Render(limit?.RemainingPercent, selectedPeriod);
+        var nextIcon = TrayIconRenderer.Render(limit?.RemainingPercent, selectedPeriod, latest?.HasBothWindows == true);
         notifyIcon.Icon = nextIcon;
         var previous = currentIcon;
         currentIcon = nextIcon;
@@ -203,8 +214,11 @@ public sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         shutdown.Cancel();
-        watcher.UsageFileChanged -= OnUsageFileChanged;
-        watcher.Dispose();
+        if (watcher is not null)
+        {
+            watcher.UsageFileChanged -= OnUsageFileChanged;
+            watcher.Dispose();
+        }
         accountRefreshTimer.Dispose();
         notifyIcon.Visible = false;
         notifyIcon.Dispose();

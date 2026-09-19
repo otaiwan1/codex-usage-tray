@@ -10,6 +10,11 @@ public static class UsageTextFormatter
         var sevenDay = FormatLimit("7d", snapshot.SevenDayLimit, now);
         var resets = FormatAvailableResets(snapshot.AvailableResetCredits);
         var updated = snapshot.ReportedAt.ToLocalTime().ToString("MM/dd HH:mm:ss", CultureInfo.InvariantCulture);
+        if (snapshot.FiveHourLimit is null && snapshot.SevenDayLimit is not null)
+        {
+            return Shorten($"{sevenDay}\n可用重置{resets} 更新{updated}", 63);
+        }
+
         return Shorten($"{fiveHour}\n{sevenDay}\n可用重置{resets} 更新{updated}", 63);
     }
 

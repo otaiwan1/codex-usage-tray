@@ -30,6 +30,14 @@
 
 **Consequences:** Older fallback events that contain only one supported window show the other period as unavailable until a snapshot containing it is read.
 
+## D-007: Isolate optional monitored accounts and simplify single-window UI
+
+**Context:** The local Codex login can be Plus while the user's remote sessions use a different Pro account. A Pro response may contain only a seven-day window. Reusing local session fallback in separate mode could silently display the wrong account.
+
+**Decision:** Default to the local Codex home. Let installation select a separate, user-owned `CODEX_HOME` and authenticate it with Codex CLI device-auth. Force file-based credential storage for both the separate login and app-server child process so Windows keyring state cannot cross profiles; never copy or inspect credentials, and disable local JSONL fallback in separate mode. Show period badges and left-click toggling only when both windows exist; a seven-day-only response uses the plain percentage icon and a concise tooltip.
+
+**Consequences:** Separate mode needs Codex CLI and one interactive login. If its account refresh fails, the monitor shows no new value rather than falling back to local Plus. Uninstall preserves the separate login directory, which users can remove explicitly after confirming it is no longer needed.
+
 ## D-002: Use a windowless .NET 8 WinForms application
 
 **Context:** The application is Windows-only and should consume minimal resources.
