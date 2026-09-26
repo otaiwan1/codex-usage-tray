@@ -1,3 +1,5 @@
+using Microsoft.Win32;
+
 namespace CodexUsageTray;
 
 public sealed class TrayApplicationContext : ApplicationContext
@@ -46,7 +48,7 @@ public sealed class TrayApplicationContext : ApplicationContext
         menu.Items.Add(refreshItem);
         menu.Items.Add(exitItem);
 
-        currentIcon = TrayIconRenderer.Render(null, selectedPeriod, showPeriodBadge: false);
+        currentIcon = RenderIcon(null, selectedPeriod, showPeriodRibbon: false);
         notifyIcon = new NotifyIcon
         {
             Icon = currentIcon,
@@ -78,6 +80,9 @@ public sealed class TrayApplicationContext : ApplicationContext
             }
         };
 
+        SystemEvents.UserPreferenceChanged += OnUserPreferenceChanged;
+        SystemEvents.DisplaySettingsChanged += OnDisplaySettingsChanged;
+
         accountRefreshTimer = new System.Threading.Timer(
             _ => _ = RefreshAllAsync(),
             null,
@@ -91,6 +96,12 @@ public sealed class TrayApplicationContext : ApplicationContext
     {
         _ = path is null ? RefreshAllAsync() : UpdateFromChangedFileAsync(path);
     }
+
+    private void OnUserPreferenceChanged(object? sender, UserPreferenceChangedEventArgs eventArgs) =>
+        PostToUi(UpdateDisplay);
+
+    private void OnDisplaySettingsChanged(object? sender, EventArgs eventArgs) =>
+        PostToUi(UpdateDisplay);
 
     private async Task UpdateFromChangedFileAsync(string? path)
     {
@@ -188,7 +199,7 @@ public sealed class TrayApplicationContext : ApplicationContext
             UpdateTooltip();
         }
 
-        var nextIcon = TrayIconRenderer.Render(limit?.RemainingPercent, selectedPeriod, latest?.HasBothWindows == true);
+        var nextIcon = RenderIcon(limit?.RemainingPercent, selectedPeriod, latest?.HasBothWindows == true);
         notifyIcon.Icon = nextIcon;
         var previous = currentIcon;
         currentIcon = nextIcon;
@@ -203,6 +214,14 @@ public sealed class TrayApplicationContext : ApplicationContext
         }
     }
 
+    private static Icon RenderIcon(int? remainingPercent, UsagePeriod period, bool showPeriodRibbon) =>
+        TrayIconRenderer.Render(
+            remainingPercent,
+            period,
+            showPeriodRibbon,
+            lightTheme: TrayDisplaySettings.IsLightTheme(),
+            size: TrayDisplaySettings.IconSize);
+
     private void PostToUi(Action action)
     {
         if (!shutdown.IsCancellationRequested)
@@ -214,6 +233,8 @@ public sealed class TrayApplicationContext : ApplicationContext
     protected override void ExitThreadCore()
     {
         shutdown.Cancel();
+        SystemEvents.UserPreferenceChanged -= OnUserPreferenceChanged;
+        SystemEvents.DisplaySettingsChanged -= OnDisplaySettingsChanged;
         if (watcher is not null)
         {
             watcher.UsageFileChanged -= OnUsageFileChanged;

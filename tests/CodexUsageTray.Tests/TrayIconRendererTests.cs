@@ -32,36 +32,101 @@ public sealed class TrayIconRendererTests
     }
 
     [Fact]
-    public void PeriodBadgeDistinguishesFiveHoursFromSevenDays()
+    public void PeriodRibbonDistinguishesFiveHoursFromSevenDaysWithoutChangingNumber()
     {
         using var fiveHourIcon = TrayIconRenderer.Render(98, UsagePeriod.FiveHours);
         using var sevenDayIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
         using var fiveHourBitmap = fiveHourIcon.ToBitmap();
         using var sevenDayBitmap = sevenDayIcon.ToBitmap();
 
-        var differentBadgePixels = 0;
-        for (var y = 18; y < 31; y++)
+        for (var y = 0; y < 23; y++)
         {
-            for (var x = 18; x < 31; x++)
+            for (var x = 0; x < 32; x++)
+            {
+                Assert.Equal(fiveHourBitmap.GetPixel(x, y), sevenDayBitmap.GetPixel(x, y));
+            }
+        }
+
+        var differentRibbonPixels = 0;
+        for (var y = 25; y < 32; y++)
+        {
+            for (var x = 1; x < 31; x++)
             {
                 if (fiveHourBitmap.GetPixel(x, y) != sevenDayBitmap.GetPixel(x, y))
                 {
-                    differentBadgePixels++;
+                    differentRibbonPixels++;
                 }
             }
         }
 
-        Assert.True(differentBadgePixels > 8, $"Only {differentBadgePixels} badge pixels differed.");
+        Assert.True(differentRibbonPixels > 100, $"Only {differentRibbonPixels} ribbon pixels differed.");
     }
 
     [Fact]
-    public void SingleWindowIconHasNoPeriodBadge()
+    public void SingleWindowIconHasNoPeriodRibbon()
     {
-        using var plainIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays, showPeriodBadge: false);
-        using var badgeIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
+        using var plainIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays, showPeriodRibbon: false);
+        using var ribbonIcon = TrayIconRenderer.Render(98, UsagePeriod.SevenDays);
         using var plain = plainIcon.ToBitmap();
-        using var badge = badgeIcon.ToBitmap();
+        using var ribbon = ribbonIcon.ToBitmap();
 
-        Assert.NotEqual(plain.GetPixel(29, 24), badge.GetPixel(29, 24));
+        Assert.Equal(0, plain.GetPixel(16, 31).A);
+        Assert.True(ribbon.GetPixel(16, 31).A > 16);
+    }
+
+    [Theory]
+    [InlineData(16)]
+    [InlineData(24)]
+    [InlineData(32)]
+    public void IconKeepsNumberAndPeriodColorVisibleAtDifferentScaling(int size)
+    {
+        using var icon = TrayIconRenderer.Render(68, UsagePeriod.FiveHours, lightTheme: true, size: size);
+        using var bitmap = icon.ToBitmap();
+
+        Assert.Equal(new Size(size, size), bitmap.Size);
+        var numberPixels = 0;
+        for (var y = 0; y < size * 3 / 4; y++)
+        {
+            for (var x = 0; x < size; x++)
+            {
+                if (bitmap.GetPixel(x, y).A > 128)
+                {
+                    numberPixels++;
+                }
+            }
+        }
+
+        Assert.True(numberPixels >= 20, $"Only {numberPixels} number pixels were visible.");
+        Assert.True(bitmap.GetPixel(size / 2, size - 1).A > 128);
+    }
+
+    [Fact]
+    public void LightThemeUsesDarkerNumberColor()
+    {
+        using var darkIcon = TrayIconRenderer.Render(68, UsagePeriod.FiveHours, lightTheme: false, size: 16);
+        using var lightIcon = TrayIconRenderer.Render(68, UsagePeriod.FiveHours, lightTheme: true, size: 16);
+        using var dark = darkIcon.ToBitmap();
+        using var light = lightIcon.ToBitmap();
+
+        var foundOpaqueNumberPixel = false;
+        for (var y = 0; y < 13 && !foundOpaqueNumberPixel; y++)
+        {
+            for (var x = 0; x < 16; x++)
+            {
+                var darkPixel = dark.GetPixel(x, y);
+                var lightPixel = light.GetPixel(x, y);
+                if (darkPixel.A < 240 || lightPixel.A < 240)
+                {
+                    continue;
+                }
+
+                Assert.True(
+                    lightPixel.R + lightPixel.G + lightPixel.B < darkPixel.R + darkPixel.G + darkPixel.B);
+                foundOpaqueNumberPixel = true;
+                break;
+            }
+        }
+
+        Assert.True(foundOpaqueNumberPixel, "No opaque number pixel was found in both themes.");
     }
 }

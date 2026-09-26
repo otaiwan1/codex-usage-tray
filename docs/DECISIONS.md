@@ -38,6 +38,22 @@
 
 **Consequences:** Separate mode needs Codex CLI and one interactive login. If its account refresh fails, the monitor shows no new value rather than falling back to local Plus. Uninstall preserves the separate login directory, which users can remove explicitly after confirming it is no longer needed.
 
+## D-008: Use a transparent icon with a period ribbon and condensed numerals
+
+**Context:** The corner `5` or `7` badge obscured the last digit of the percentage. A dark tile and bottom ribbon made the numerals too small for the Windows taskbar.
+
+**Decision:** Keep the icon background transparent. When both usage windows exist, draw the selected `5h` or `7d` in a colored ribbon below the percentage. Use Bahnschrift SemiBold Condensed for the percentage and preserve its aspect ratio so two digits can occupy more height without stretching; fall back to Segoe UI if the font is unavailable. Omit the ribbon for a single-window response.
+
+**Consequences:** The period marker no longer covers the percentage. The ribbon text remains small at taskbar size, with its color and the tooltip providing additional period cues.
+
+## D-009: Render at the notification area's native size and follow its theme
+
+**Context:** Windows reports a 16-pixel small icon on the current display, while the tray rendered only a 32-pixel icon. Scaling the narrow numerals down could weaken or remove individual pixels. An actual taskbar screenshot still showed broken-looking `64` after native-size vector rendering. [Battery Percentage Icon 2](https://github.com/soleon/Percentage) demonstrates a simpler 16-pixel text icon using Microsoft Sans Serif and a theme-based foreground color.
+
+**Decision:** Render the icon at `SystemInformation.SmallIconSize` and use `SystemUsesLightTheme` to choose a light foreground for a dark taskbar or a dark foreground for a light taskbar when allowance is healthy; retain amber and red for low allowance. Render one- and two-digit percentages at every icon size with hinted Microsoft Sans Serif text through a grayscale coverage mask instead of vector paths. Keep the condensed vector font for three digits, and use a compact period color strip without tiny text at sizes up to 20 pixels. React to Windows user-preference and display-setting events, and also read the current settings on each normal display update.
+
+**Consequences:** The taskbar no longer needs to shrink a 32-pixel image to 16 pixels, and small numerals use the system's hinted text rasterization. Three-digit numbers retain a narrower font to fit. The `5h`/`7d` text appears inside the ribbon at larger icon sizes; on smaller icons, the color strip and context-menu status identify the selected period. Theme changes require no additional polling.
+
 ## D-002: Use a windowless .NET 8 WinForms application
 
 **Context:** The application is Windows-only and should consume minimal resources.

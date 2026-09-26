@@ -2,7 +2,7 @@
 
 ## Purpose
 
-Codex Usage Tray is a low-overhead Windows tray application that shows the remaining Codex five-hour or seven-day usage percentage directly in its icon. If both windows exist, left-click switches between them and refreshes; if only seven-day exists, the icon has no period badge and left-click only refreshes. Hover text shows the available windows, reset countdowns, earned reset count, and last refresh time.
+Codex Usage Tray is a low-overhead Windows tray application that shows the remaining Codex five-hour or seven-day usage percentage directly in its icon. If both windows exist, left-click switches between them and refreshes; if only seven-day exists, the icon has no period ribbon and left-click only refreshes. Hover text shows the available windows, reset countdowns, earned reset count, and last refresh time.
 
 ## Architecture
 
@@ -12,7 +12,8 @@ Codex Usage Tray is a low-overhead Windows tray application that shows the remai
 - `CodexAccountRateLimitParser`: selects `rateLimitsByLimitId.codex`, with the compatible single-bucket response as fallback, then extracts the five-hour and seven-day windows plus the reset-credit count.
 - `CodexUsageLogReader`: reads only recent tails of local Codex session JSONL files as an offline fallback and for immediate local-session updates.
 - `UsageFileWatcher`: uses `FileSystemWatcher` plus a short debounce to react to Codex writes without periodic polling.
-- `TrayIconRenderer`: renders a small percentage icon using Windows GDI+.
+- `TrayIconRenderer`: renders a theme-aware percentage icon at the Windows notification area's small-icon size using GDI+.
+- `TrayDisplaySettings`: reads the Windows taskbar light/dark setting and current small-icon size; system events trigger redraws when the appearance changes.
 - `scripts/CodexUsageTray.ps1`: per-user install, startup configuration, status, and uninstall entry point.
 - `.github/workflows/release.yml`: builds and attaches the self-contained EXE and checksum to version-tag releases.
 - `tests/CodexUsageTray.Tests`: parser, selection, and formatting tests.
